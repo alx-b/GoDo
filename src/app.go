@@ -33,7 +33,32 @@ func mainContent(a fyne.App, w fyne.Window) *fyne.Container {
 				a.Settings().SetTheme(theme.DarkTheme())
 			}
 		}),
+		widget.NewToolbarAction(theme.DocumentCreateIcon(), func() {
+			w.SetContent(addTaskContent(a, w))
+		}),
 	)
 
 	return container.NewBorder(toolbar, nil, nil, nil, tabs)
+}
+
+func addTaskContent(a fyne.App, w fyne.Window) *fyne.Container {
+	taskEntry := widget.NewEntry()
+	taskEntry.SetPlaceHolder("Enter task name")
+	taskStatusSelection := widget.NewSelect(
+		[]string{"ToDo", "Doing", "Done"}, func(change string) {
+		})
+	taskStatusSelection.PlaceHolder = "ToDo"
+
+	submitButton := widget.NewButton("Add", func() {
+	})
+
+	toolbar := widget.NewToolbar(
+		widget.NewToolbarAction(theme.NavigateBackIcon(), func() {
+			w.SetContent(mainContent(a, w))
+		}),
+	)
+
+	form := container.NewVBox(taskEntry, taskStatusSelection, submitButton)
+
+	return container.NewBorder(toolbar, nil, nil, nil, form)
 }
