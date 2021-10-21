@@ -103,6 +103,13 @@ func mainContent(a fyne.App, w fyne.Window) *fyne.Container {
 		widget.NewToolbarAction(theme.DocumentCreateIcon(), func() {
 			w.SetContent(addTaskContent(a, w))
 		}),
+		widget.NewToolbarSpacer(),
+		widget.NewToolbarAction(theme.DeleteIcon(), func() {
+			DeleteAllFromDB()
+			list, _ = GetFromDB()
+			myListToDo, myListInProgress, myListDone = splitTaskListByStatus(list)
+			tabs.Refresh()
+		}),
 	)
 
 	return container.NewBorder(toolbar, nil, nil, nil, tabs)
