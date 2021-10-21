@@ -2,7 +2,10 @@ module github.com/alx-b/godo
 
 go 1.17
 
-require fyne.io/fyne/v2 v2.1.0
+require (
+	fyne.io/fyne/v2 v2.1.0
+	github.com/mattn/go-sqlite3 v1.14.9
+)
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
