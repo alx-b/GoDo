@@ -2,6 +2,8 @@ package godo
 
 import (
 	"database/sql"
+	"fmt"
+
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -18,12 +20,19 @@ type Task struct {
 	status Status
 }
 
-func openDB() (*sql.DB, error) {
-	db, err := sql.Open("sqlite3", "godo_data.db")
+type TaskDB struct {
+	data       *sql.DB
+	driverName string
+	filePath   string
+}
+
+func CreateDB(driverName, filePath string) *TaskDB {
+	db, err := sql.Open(driverName, filePath)
 	if err != nil {
-		return nil, err
+		return nil
 	}
-	return db, nil
+	createIfNotExist(db)
+	return &TaskDB{db, driverName, filePath}
 }
 
 func createIfNotExist(db *sql.DB) error {
@@ -38,13 +47,8 @@ func createIfNotExist(db *sql.DB) error {
 	return nil
 }
 
-func GetFromDB() ([]Task, error) {
-	db, err := openDB()
-	defer db.Close()
-
-	createIfNotExist(db)
-
-	rows, err := db.Query("SELECT name, status FROM task")
+func (db *TaskDB) GetFromDB() ([]Task, error) {
+	rows, err := db.data.Query("SELECT name, status FROM task")
 
 	if err != nil {
 		return nil, err
@@ -60,11 +64,8 @@ func GetFromDB() ([]Task, error) {
 	return list, nil
 }
 
-func AddToDB(task Task) error {
-	db, err := openDB()
-	defer db.Close()
-
-	_, err = db.Exec("INSERT INTO task (name, status) VALUES (?,?)",
+func (db *TaskDB) AddToDB(task Task) error {
+	_, err := db.data.Exec("INSERT INTO task (name, status) VALUES (?,?)",
 		task.name, task.status,
 	)
 
@@ -75,11 +76,8 @@ func AddToDB(task Task) error {
 	return nil
 }
 
-func UpdateToDB(oldName string, task Task) error {
-	db, err := openDB()
-	defer db.Close()
-
-	_, err = db.Exec("Update task SET name=?,status=? WHERE name=?", task.name, task.status, oldName)
+func (db *TaskDB) UpdateToDB(oldName string, task Task) error {
+	_, err := db.data.Exec("Update task SET name=?,status=? WHERE name=?", task.name, task.status, oldName)
 
 	if err != nil {
 		return err
@@ -88,11 +86,8 @@ func UpdateToDB(oldName string, task Task) error {
 	return nil
 }
 
-func DeleteFromDB(name string) error {
-	db, err := openDB()
-	defer db.Close()
-
-	_, err = db.Exec("DELETE FROM task WHERE name=?", name)
+func (db *TaskDB) DeleteFromDB(name string) error {
+	_, err := db.data.Exec("DELETE FROM task WHERE name=?", name)
 
 	if err != nil {
 		return err
@@ -101,15 +96,16 @@ func DeleteFromDB(name string) error {
 	return nil
 }
 
-func DeleteAllFromDB() error {
-	db, err := openDB()
-	defer db.Close()
-
-	_, err = db.Exec("DELETE FROM task")
+func (db *TaskDB) DeleteAllFromDB() error {
+	_, err := db.data.Exec("DELETE FROM task")
 
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func (db *TaskDB) CloseConnection() {
+	db.data.Close()
 }

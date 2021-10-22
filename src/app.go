@@ -2,25 +2,31 @@ package godo
 
 import (
 	"fmt"
+	"reflect"
+	"sort"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-	"reflect"
-	"sort"
 )
 
 func Start() {
+	db := CreateDB("sqlite3", "godo_data.db")
+	defer db.CloseConnection()
+
 	app := app.New()
 	app.Settings().SetTheme(theme.DarkTheme())
 	window := app.NewWindow("GoDo")
 	window.Resize(fyne.NewSize(300, 500))
-	window.SetContent(mainContent(app, window))
+	window.SetContent(mainContent(app, window, db))
 	window.ShowAndRun()
 }
 
-func splitTaskListByStatus(taskList []Task) ([]string, []string, []string) {
+func splitTaskListByStatus(db *TaskDB) ([]string, []string, []string) {
+	taskList, _ := db.GetFromDB()
+
 	myListToDo := []string{}
 	myListInProgress := []string{}
 	myListDone := []string{}
@@ -54,34 +60,30 @@ func createListView(list *[]string) *widget.List {
 	})
 }
 
-func mainContent(a fyne.App, w fyne.Window) *fyne.Container {
-	list, _ := GetFromDB()
-	myListToDo, myListInProgress, myListDone := splitTaskListByStatus(list)
+func mainContent(a fyne.App, w fyne.Window, db *TaskDB) *fyne.Container {
+	myListToDo, myListInProgress, myListDone := splitTaskListByStatus(db)
 
 	listView := createListView(&myListToDo)
 	listViewInProgress := createListView(&myListInProgress)
 	listViewDone := createListView(&myListDone)
 
 	listView.OnSelected = func(id widget.ListItemID) {
-		UpdateToDB(myListToDo[id], Task{myListToDo[id], InProgress})
-		list, _ = GetFromDB()
-		myListToDo, myListInProgress, myListDone = splitTaskListByStatus(list)
+		db.UpdateToDB(myListToDo[id], Task{myListToDo[id], InProgress})
+		myListToDo, myListInProgress, myListDone = splitTaskListByStatus(db)
 		listView.UnselectAll()
 		listView.Refresh()
 	}
 
 	listViewInProgress.OnSelected = func(id widget.ListItemID) {
-		UpdateToDB(myListInProgress[id], Task{myListInProgress[id], Done})
-		list, _ = GetFromDB()
-		myListToDo, myListInProgress, myListDone = splitTaskListByStatus(list)
+		db.UpdateToDB(myListInProgress[id], Task{myListInProgress[id], Done})
+		myListToDo, myListInProgress, myListDone = splitTaskListByStatus(db)
 		listViewInProgress.UnselectAll()
 		listViewInProgress.Refresh()
 	}
 
 	listViewDone.OnSelected = func(id widget.ListItemID) {
-		DeleteFromDB(myListDone[id])
-		list, _ = GetFromDB()
-		myListToDo, myListInProgress, myListDone = splitTaskListByStatus(list)
+		db.DeleteFromDB(myListDone[id])
+		myListToDo, myListInProgress, myListDone = splitTaskListByStatus(db)
 		listViewDone.UnselectAll()
 		listViewDone.Refresh()
 	}
@@ -101,13 +103,12 @@ func mainContent(a fyne.App, w fyne.Window) *fyne.Container {
 			}
 		}),
 		widget.NewToolbarAction(theme.DocumentCreateIcon(), func() {
-			w.SetContent(addTaskContent(a, w))
+			w.SetContent(addTaskContent(a, w, db))
 		}),
 		widget.NewToolbarSpacer(),
 		widget.NewToolbarAction(theme.DeleteIcon(), func() {
-			DeleteAllFromDB()
-			list, _ = GetFromDB()
-			myListToDo, myListInProgress, myListDone = splitTaskListByStatus(list)
+			db.DeleteAllFromDB()
+			myListToDo, myListInProgress, myListDone = splitTaskListByStatus(db)
 			tabs.Refresh()
 		}),
 	)
@@ -115,7 +116,7 @@ func mainContent(a fyne.App, w fyne.Window) *fyne.Container {
 	return container.NewBorder(toolbar, nil, nil, nil, tabs)
 }
 
-func addTaskContent(a fyne.App, w fyne.Window) *fyne.Container {
+func addTaskContent(a fyne.App, w fyne.Window, db *TaskDB) *fyne.Container {
 	taskEntry := widget.NewEntry()
 	taskEntry.SetPlaceHolder("Enter task name")
 	taskStatusSelection := widget.NewSelect(
@@ -136,7 +137,7 @@ func addTaskContent(a fyne.App, w fyne.Window) *fyne.Container {
 			case "Done":
 				taskStat = Done
 			}
-			AddToDB(Task{taskEntry.Text, taskStat})
+			db.AddToDB(Task{taskEntry.Text, taskStat})
 			taskEntry.Text = ""
 			taskEntry.Refresh()
 		}
@@ -144,7 +145,7 @@ func addTaskContent(a fyne.App, w fyne.Window) *fyne.Container {
 
 	toolbar := widget.NewToolbar(
 		widget.NewToolbarAction(theme.NavigateBackIcon(), func() {
-			w.SetContent(mainContent(a, w))
+			w.SetContent(mainContent(a, w, db))
 		}),
 	)
 
